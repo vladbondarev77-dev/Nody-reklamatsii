@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<title>Тест</title>
+</head>
+<body style="font-family:sans-serif; padding:20px; white-space:pre-wrap;">
+<h3>Перевірка зв'язку з Apps Script</h3>
+<div id="out">Завантажую…</div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxoSCVDvoBV1k8SOABpndyyLjJQG4J_IEniSp8JM3e0tQNP2cqbsZSX-WFtDQV0X3Z9ZA/exec';
+
+fetch(APPS_SCRIPT_URL + '?action=projects')
+  .then(function (res) {
+    document.getElementById('out').textContent = 'HTTP статус: ' + res.status + '\n\n';
+    return res.text();
+  })
+  .then(function (text) {
+    document.getElementById('out').textContent += 'Відповідь:\n' + text;
+  })
+  .catch(function (err) {
+    document.getElementById('out').textContent = 'ПОМИЛКА:\n' + err.toString() + '\n\n' + (err.stack || '');
+  });
+</script>
+</body>
+</html>
