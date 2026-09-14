@@ -259,8 +259,11 @@ async function loadDetail(project, pushHistory) {
   el.innerHTML = '<div class="loading">Завантажую…</div>';
   let data;
   try {
-    if (!REF) REF = await apiGet('refData');
-    data = await apiGet('projectDetail', { project });
+    const [ref, detail] = await Promise.all([
+      REF ? Promise.resolve(REF) : apiGet('refData'),
+      apiGet('projectDetail', { project })
+    ]);
+    REF = ref; data = detail;
   } catch (err) { showError_(el, err); return; }
   setHeader(data.meta['Назва об\'єкта'] || project, `Проєкт ${project} · ${data.claims.length} рекламаці${data.claims.length === 1 ? 'я' : 'й'}`, true);
 
