@@ -218,12 +218,21 @@ function pill(status) {
 }
 
 // ==================== ЕКРАН: СПИСОК ПРОЄКТІВ ====================
+function showError_(el, err) {
+  console.error(err);
+  el.innerHTML = `<div class="warn">Помилка: ${(err && err.message) || err}</div>`;
+}
+
 async function loadList() {
   history = ['list'];
   showScreen('list'); setHeader('Проєкти з рекламаціями', 'завантаження…', false);
   const el = document.getElementById('screen-list');
   el.innerHTML = '<div class="loading">Завантажую…</div>';
-  const projects = await apiGet('projects');
+  let projects;
+  try {
+    projects = await apiGet('projects');
+  } catch (err) { showError_(el, err); return; }
+  if (projects && projects.error) { showError_(el, projects.error); return; }
   setHeader('Проєкти з рекламаціями', `${projects.length} об'єкт(и) · за пріоритетом статусу`, false);
   if (!projects.length) { el.innerHTML = '<div class="loading">Поки немає жодної рекламації.</div>'; return; }
   el.innerHTML = projects.map(p => `
@@ -248,8 +257,11 @@ async function loadDetail(project, pushHistory) {
   showScreen('detail'); setHeader('Картка проєкту', 'завантаження…', true);
   const el = document.getElementById('screen-detail');
   el.innerHTML = '<div class="loading">Завантажую…</div>';
-  if (!REF) REF = await apiGet('refData');
-  const data = await apiGet('projectDetail', { project });
+  let data;
+  try {
+    if (!REF) REF = await apiGet('refData');
+    data = await apiGet('projectDetail', { project });
+  } catch (err) { showError_(el, err); return; }
   setHeader(data.meta['Назва об\'єкта'] || project, `Проєкт ${project} · ${data.claims.length} рекламаці${data.claims.length === 1 ? 'я' : 'й'}`, true);
 
   el.innerHTML = `
@@ -361,9 +373,11 @@ function cssEscape(s) { return String(s).replace(/[^a-zA-Z0-9_-]/g, '_'); }
 // ==================== ЕКРАН: НОВА РЕКЛАМАЦІЯ ====================
 async function loadForm() {
   showScreen('form'); setHeader('Нова рекламація', 'завантаження…', true);
-  if (!REF) REF = await apiGet('refData');
-  setHeader('Нова рекламація', 'заповніть форму нижче', true);
   const el = document.getElementById('screen-form');
+  try {
+    if (!REF) REF = await apiGet('refData');
+  } catch (err) { el.innerHTML = ''; showError_(el, err); return; }
+  setHeader('Нова рекламація', 'заповніть форму нижче', true);
   el.innerHTML = `
     <div class="field"><label>Проєкт</label>
       <select id="f-project">
@@ -446,9 +460,13 @@ async function submitClaim() {
 async function loadAct(project) {
   history.push('act');
   showScreen('act'); setHeader('Акт на друк', 'завантаження…', true);
-  const data = await apiGet('actData', { project });
-  setHeader('Акт на друк', `№ ${data.actNumber}`, true);
   const el = document.getElementById('screen-act');
+  el.innerHTML = '<div class="loading">Завантажую…</div>';
+  let data;
+  try {
+    data = await apiGet('actData', { project });
+  } catch (err) { showError_(el, err); return; }
+  setHeader('Акт на друк', `№ ${data.actNumber}`, true);
   el.innerHTML = `
     <div class="act-sheet">
       <div class="act-head">
