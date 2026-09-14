@@ -174,19 +174,46 @@ async function apiPost(action, body) {
   }
   return jsonp_(action, body);
 }
-function fileToBase64(file) {
+// Фото з телефону часто важить 3-5+ МБ — саме це, а не мережа чи Apps Script,
+// найбільше сповільнює "Завантажую фото…". Стискаємо до розумного розміру
+// перед відправкою (макс. сторона 1600px, JPEG ~80%) — зазвичай виходить
+// у 5-10 разів менше, і завантаження прискорюється відповідно.
+function compressImage_(file, maxSide, quality) {
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result.split(',')[1]);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
+    if (!file.type.startsWith('image/')) {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ base64: reader.result.split(',')[1], mimeType: file.type || 'application/octet-stream' });
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+      return;
+    }
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      let { width, height } = img;
+      if (width > maxSide || height > maxSide) {
+        const scale = maxSide / Math.max(width, height);
+        width = Math.round(width * scale);
+        height = Math.round(height * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      const dataUrl = canvas.toDataURL('image/jpeg', quality);
+      resolve({ base64: dataUrl.split(',')[1], mimeType: 'image/jpeg' });
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Не вдалось обробити фото ' + file.name)); };
+    img.src = url;
   });
 }
-async function uploadPhotos(fileList) {
+async function uploadPhotos(fileList, onProgress) {
   const urls = [];
-  for (const file of fileList) {
-    const base64 = await fileToBase64(file);
-    const r = await apiPost('uploadPhoto', { filename: file.name, mimeType: file.type, base64 });
+  const files = Array.from(fileList);
+  for (let i = 0; i < files.length; i++) {
+    if (onProgress) onProgress(i + 1, files.length);
+    const { base64, mimeType } = await compressImage_(files[i], 1600, 0.82);
+    const r = await apiPost('uploadPhoto', { filename: files[i].name, mimeType, base64 });
     if (r.url) urls.push(r.url);
   }
   return urls;
@@ -444,8 +471,9 @@ async function submitClaim() {
     if (!proceed) { btn.disabled = false; btn.textContent = 'Надіслати рекламацію'; return; }
   }
 
-  btn.textContent = 'Завантажую фото…';
-  const photoUrls = await uploadPhotos(files);
+  const photoUrls = await uploadPhotos(files, (i, total) => {
+    btn.textContent = total > 1 ? `Завантажую фото ${i} з ${total}…` : 'Завантажую фото…';
+  });
 
   btn.textContent = 'Надсилаю…';
   const r = await apiPost('createClaim', {
