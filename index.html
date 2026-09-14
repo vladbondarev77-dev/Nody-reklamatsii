@@ -148,7 +148,7 @@ let history = ['list'];
 // дії, крім завантаження фото, ідуть через JSONP (<script> тег, якого CORS
 // не стосується взагалі). Фото (великий base64) — окремо, звичайним POST.
 
-function jsonp_(action, payload) {
+function jsonp_(action, payload, isRetry) {
   return new Promise((resolve, reject) => {
     const cbName = 'cb_' + Math.random().toString(36).slice(2);
     const qs = new URLSearchParams({ action, callback: cbName, payload: JSON.stringify(payload || {}) });
@@ -156,7 +156,17 @@ function jsonp_(action, payload) {
     const timer = setTimeout(() => { cleanup(); reject(new Error('Немає відповіді 40с. Спробуйте ще раз — Google міг "заснути" через паузу у використанні.')); }, 40000);
     function cleanup() { clearTimeout(timer); delete window[cbName]; script.remove(); }
     window[cbName] = (data) => { cleanup(); resolve(data); };
-    script.onerror = () => { cleanup(); reject(new Error('Помилка мережі: ' + action)); };
+    // Мобільна мережа/Telegram інколи обриває саме цей один запит (короткий
+    // збій зв'язку) — це не помилка коду і не Apps Script. Тому перш ніж
+    // показати помилку користувачу, тихо пробуємо ще раз один раз.
+    script.onerror = () => {
+      cleanup();
+      if (!isRetry) {
+        setTimeout(() => { jsonp_(action, payload, true).then(resolve, reject); }, 1200);
+      } else {
+        reject(new Error('Помилка мережі: ' + action));
+      }
+    };
     script.src = `${APPS_SCRIPT_URL}?${qs}`;
     document.body.appendChild(script);
   });
@@ -245,9 +255,10 @@ function pill(status) {
 }
 
 // ==================== ЕКРАН: СПИСОК ПРОЄКТІВ ====================
-function showError_(el, err) {
+function showError_(el, err, retryCall) {
   console.error(err);
-  el.innerHTML = `<div class="warn">Помилка: ${(err && err.message) || err}</div>`;
+  el.innerHTML = `<div class="warn">Помилка: ${(err && err.message) || err}</div>` +
+    (retryCall ? `<button class="btn no-print" style="margin-top:10px" onclick="${retryCall}">Спробувати ще раз</button>` : '');
 }
 
 async function loadList() {
@@ -258,7 +269,7 @@ async function loadList() {
   let projects;
   try {
     projects = await apiGet('projects');
-  } catch (err) { showError_(el, err); return; }
+  } catch (err) { showError_(el, err, 'loadList()'); return; }
   if (projects && projects.error) { showError_(el, projects.error); return; }
   setHeader('Проєкти з рекламаціями', `${projects.length} об'єкт(и) · за пріоритетом статусу`, false);
   if (!projects.length) { el.innerHTML = '<div class="loading">Поки немає жодної рекламації.</div>'; return; }
@@ -291,7 +302,7 @@ async function loadDetail(project, pushHistory) {
       apiGet('projectDetail', { project })
     ]);
     REF = ref; data = detail;
-  } catch (err) { showError_(el, err); return; }
+  } catch (err) { showError_(el, err, `loadDetail('${project}', false)`); return; }
   setHeader(data.meta['Назва об\'єкта'] || project, `Проєкт ${project} · ${data.claims.length} рекламаці${data.claims.length === 1 ? 'я' : 'й'}`, true);
 
   el.innerHTML = `
@@ -405,7 +416,7 @@ async function loadForm() {
   const el = document.getElementById('screen-form');
   try {
     if (!REF) REF = await apiGet('refData');
-  } catch (err) { el.innerHTML = ''; showError_(el, err); return; }
+  } catch (err) { el.innerHTML = ''; showError_(el, err, 'loadForm()'); return; }
   setHeader('Нова рекламація', 'заповніть форму нижче', true);
   el.innerHTML = `
     <div class="field"><label>Проєкт</label>
@@ -500,7 +511,7 @@ async function loadAct(project) {
   let data;
   try {
     data = await apiGet('actData', { project });
-  } catch (err) { showError_(el, err); return; }
+  } catch (err) { showError_(el, err, `loadAct('${project}')`); return; }
   setHeader('Акт на друк', `№ ${data.actNumber}`, true);
   el.innerHTML = `
     <div class="act-sheet">
