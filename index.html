@@ -153,7 +153,7 @@ function jsonp_(action, payload) {
     const cbName = 'cb_' + Math.random().toString(36).slice(2);
     const qs = new URLSearchParams({ action, callback: cbName, payload: JSON.stringify(payload || {}) });
     const script = document.createElement('script');
-    const timer = setTimeout(() => { cleanup(); reject(new Error('Таймаут запиту: ' + action)); }, 15000);
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Немає відповіді 40с. Спробуйте ще раз — Google міг "заснути" через паузу у використанні.')); }, 40000);
     function cleanup() { clearTimeout(timer); delete window[cbName]; script.remove(); }
     window[cbName] = (data) => { cleanup(); resolve(data); };
     script.onerror = () => { cleanup(); reject(new Error('Помилка мережі: ' + action)); };
@@ -227,7 +227,7 @@ async function loadList() {
   history = ['list'];
   showScreen('list'); setHeader('Проєкти з рекламаціями', 'завантаження…', false);
   const el = document.getElementById('screen-list');
-  el.innerHTML = '<div class="loading">Завантажую…</div>';
+  el.innerHTML = '<div class="loading">Завантажую… (перший запит за довгу паузу буває повільним)</div>';
   let projects;
   try {
     projects = await apiGet('projects');
@@ -256,7 +256,7 @@ async function loadDetail(project, pushHistory) {
   if (pushHistory) history.push('detail');
   showScreen('detail'); setHeader('Картка проєкту', 'завантаження…', true);
   const el = document.getElementById('screen-detail');
-  el.innerHTML = '<div class="loading">Завантажую…</div>';
+  el.innerHTML = '<div class="loading">Завантажую… (перший запит за довгу паузу буває повільним)</div>';
   let data;
   try {
     const [ref, detail] = await Promise.all([
@@ -383,13 +383,14 @@ async function loadForm() {
   setHeader('Нова рекламація', 'заповніть форму нижче', true);
   el.innerHTML = `
     <div class="field"><label>Проєкт</label>
-      <select id="f-project">
-        <option value="">— виберіть проєкт —</option>
-        ${REF.projects.map(p => `<option value="${p.number}">${p.number} — ${p.title} (${p.client})</option>`).join('')}
-      </select>
+      <input type="text" id="f-project" list="f-project-list" placeholder="напр. 2026-041">
+      <datalist id="f-project-list">
+        ${REF.projects.map(p => `<option value="${p.number}">${p.title} (${p.client})</option>`).join('')}
+      </datalist>
+      <div class="hint">Номер об'єкта — впишіть вручну. Якщо він уже є в листі «Проєкти», клієнт і телефон підставляться самі.</div>
     </div>
-    <div class="field"><label>Клієнт</label><input type="text" id="f-client"></div>
-    <div class="field"><label>Телефон</label><input type="tel" id="f-phone"></div>
+    <div class="field"><label>Клієнт</label><input type="text" id="f-client" placeholder="ПІБ клієнта"></div>
+    <div class="field"><label>Телефон</label><input type="tel" id="f-phone" placeholder="+380…"></div>
     <div class="field"><label>Категорія дефекту</label>
       <div class="chip-row" id="f-category">
         ${REF.categories.map((c, i) => `<span class="chip${i === 0 ? ' is-active' : ''}" data-v="${c}">${c}</span>`).join('')}
@@ -400,12 +401,16 @@ async function loadForm() {
     <div id="f-warn"></div>
     <button class="btn" id="f-submit">Надіслати рекламацію</button>
   `;
-  // автозаповнення клієнта/телефону при виборі проєкту
-  document.getElementById('f-project').onchange = (e) => {
+  // якщо вписаний номер збігається з відомим проєктом — підставити клієнта й телефон
+  // (тільки якщо поля ще порожні, щоб не затирати вручну введене)
+  document.getElementById('f-project').addEventListener('input', (e) => {
     const p = REF.projects.find(p => p.number === e.target.value);
-    document.getElementById('f-client').value = p ? p.client : '';
-    document.getElementById('f-phone').value = p ? p.phone : '';
-  };
+    if (!p) return;
+    const clientEl = document.getElementById('f-client');
+    const phoneEl = document.getElementById('f-phone');
+    if (!clientEl.value) clientEl.value = p.client;
+    if (!phoneEl.value) phoneEl.value = p.phone;
+  });
   document.querySelectorAll('#f-category .chip').forEach(chip => {
     chip.onclick = () => {
       document.querySelectorAll('#f-category .chip').forEach(c => c.classList.remove('is-active'));
@@ -464,7 +469,7 @@ async function loadAct(project) {
   history.push('act');
   showScreen('act'); setHeader('Акт на друк', 'завантаження…', true);
   const el = document.getElementById('screen-act');
-  el.innerHTML = '<div class="loading">Завантажую…</div>';
+  el.innerHTML = '<div class="loading">Завантажую… (перший запит за довгу паузу буває повільним)</div>';
   let data;
   try {
     data = await apiGet('actData', { project });
