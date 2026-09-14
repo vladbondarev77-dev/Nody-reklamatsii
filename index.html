@@ -1,0 +1,457 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Рекламації NODY</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#F5F3EE; --surface:#FFFFFF; --surface-2:#ECE7DC;
+    --ink:#211E1A; --ink-soft:#5A5348; --muted:#8C8579; --line:#E1DBCC;
+    --accent:#8B5A2B; --accent-ink:#FFFFFF; --accent-soft:#F1E0CB;
+    --status-new:#45536B; --status-new-soft:#E7EAF0;
+    --status-progress:#8A5F1E; --status-progress-soft:#F5E9D3;
+    --status-wait:#8B5A2B; --status-wait-soft:#F1E0CB;
+    --status-closed:#3F5B3F; --status-closed-soft:#E4EBE1;
+    --danger:#A23B3B; --danger-soft:#F3E1DF;
+    --font-display:'Manrope',system-ui,sans-serif;
+    --font-body:'Source Sans 3',system-ui,sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#17140F; --surface:#211D17; --surface-2:#2A2419;
+      --ink:#F3EFE7; --ink-soft:#C9C1B4; --muted:#8F887A; --line:#3A3226;
+      --accent:#D8A057; --accent-ink:#1A1410; --accent-soft:#3B2A18;
+      --status-new:#A8B7D9; --status-new-soft:#262B3A;
+      --status-progress:#E8BE7B; --status-progress-soft:#3A2E17;
+      --status-wait:#D8A057; --status-wait-soft:#3B2A18;
+      --status-closed:#A9CBA4; --status-closed-soft:#223122;
+      --danger:#E0958C; --danger-soft:#3A2420;
+    }
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; background:var(--bg); color:var(--ink); font-family:var(--font-body); font-size:16px; line-height:1.5; padding:0 0 24px;}
+  header.top{
+    position:sticky; top:0; z-index:5; background:var(--surface); border-bottom:1px solid var(--line);
+    padding:14px 16px; display:flex; align-items:center; gap:10px;
+  }
+  header.top button.back{ background:none; border:0; font-size:18px; color:var(--accent); cursor:pointer; padding:0 4px; display:none; }
+  header.top .titles{ flex:1; }
+  header.top h1{ font-family:var(--font-display); font-weight:800; font-size:16px; margin:0; }
+  header.top .sub{ font-size:12px; color:var(--muted); margin-top:2px; }
+  main{ padding:14px 16px; max-width:520px; margin:0 auto; display:flex; flex-direction:column; gap:12px; }
+  .screen[hidden]{ display:none; }
+
+  .pcard{
+    background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:13px 14px;
+    display:flex; flex-direction:column; gap:8px; cursor:pointer; width:100%; text-align:left; font:inherit; color:inherit;
+  }
+  .pcard-top{ display:flex; justify-content:space-between; gap:10px; }
+  .pcard-title{ font-family:var(--font-display); font-weight:700; font-size:15px; }
+  .pcard-sub{ font-size:12.5px; color:var(--muted); margin-top:2px; }
+  .pcard-num{ font-family:var(--font-mono); font-size:11px; color:var(--muted); }
+  .pcard-count{ font-size:11.5px; font-weight:600; white-space:nowrap; }
+
+  .pill{ display:inline-flex; align-items:center; gap:5px; font-family:var(--font-display); font-weight:700; font-size:10.5px; letter-spacing:.02em; text-transform:uppercase; padding:4px 9px; border-radius:999px; width:fit-content; }
+  .pill::before{ content:""; width:6px; height:6px; border-radius:50%; background:currentColor; }
+  .pill--new{ background:var(--status-new-soft); color:var(--status-new); }
+  .pill--progress{ background:var(--status-progress-soft); color:var(--status-progress); }
+  .pill--wait{ background:var(--status-wait-soft); color:var(--status-wait); }
+  .pill--closed{ background:var(--status-closed-soft); color:var(--status-closed); }
+
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .claim-row{ border:1px solid var(--line); border-radius:12px; padding:12px; display:flex; flex-direction:column; gap:8px; background:var(--surface); }
+  .claim-row-top{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .claim-code{ font-family:var(--font-mono); font-weight:600; font-size:13px; }
+  .claim-meta{ font-size:12.5px; color:var(--muted); }
+
+  label{ font-family:var(--font-display); font-weight:700; font-size:11px; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); display:block; margin-bottom:5px; }
+  .field{ display:flex; flex-direction:column; gap:5px; margin-bottom:12px; }
+  select, input[type=text], input[type=tel], textarea{
+    width:100%; font-family:var(--font-body); font-size:14.5px; background:var(--surface-2); border:1px solid var(--line);
+    border-radius:10px; padding:9px 10px; color:var(--ink);
+  }
+  textarea{ min-height:80px; resize:vertical; }
+  .chip-row{ display:flex; gap:6px; flex-wrap:wrap; }
+  .chip{ font-size:12.5px; font-weight:600; border-radius:999px; padding:7px 12px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink-soft); cursor:pointer; }
+  .chip.is-active{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+
+  .btn{ font-family:var(--font-display); font-weight:700; font-size:13.5px; border:0; border-radius:11px; padding:11px 14px; cursor:pointer; background:var(--accent); color:var(--accent-ink); width:100%; }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .btn--ghost{ background:var(--surface-2); color:var(--ink); border:1px solid var(--line); }
+  .btn--danger{ background:var(--danger); color:#fff; }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row .btn{ width:auto; flex:1; }
+
+  .hint{ font-size:11.5px; color:var(--muted); }
+  .warn{ background:var(--danger-soft); color:var(--danger); border-radius:10px; padding:9px 11px; font-size:12.5px; }
+  .fab{ position:fixed; right:18px; bottom:18px; z-index:5; }
+  .fab .btn{ border-radius:999px; padding:14px 20px; box-shadow:0 8px 18px rgba(0,0,0,.2); width:auto; }
+
+  .act-sheet{ background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px; font-size:12.5px; display:flex; flex-direction:column; gap:10px; }
+  .act-head{ text-align:center; border-bottom:1px dashed var(--line); padding-bottom:10px; }
+  .act-head .act-num{ font-family:var(--font-mono); font-weight:700; font-size:16px; }
+  .act-item{ border:1px solid var(--line); border-radius:8px; padding:9px 10px; display:flex; flex-direction:column; gap:4px; }
+  .act-item-top{ display:flex; justify-content:space-between; font-family:var(--font-mono); font-weight:600; font-size:12px; }
+  .act-sign{ font-size:11px; color:var(--muted); display:flex; justify-content:space-between; border-top:1px solid var(--line); padding-top:6px; margin-top:2px; }
+
+  .photo-list{ display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
+  .photo-chip{ font-size:11.5px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:5px 9px; }
+  .loading{ text-align:center; color:var(--muted); padding:30px 0; font-size:13px; }
+
+  @media print{
+    header.top, .fab, .no-print{ display:none !important; }
+    body{ background:#fff; }
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <button class="back" id="backBtn" onclick="goBack()">←</button>
+  <div class="titles">
+    <h1 id="screenTitle">Проєкти з рекламаціями</h1>
+    <div class="sub" id="screenSub">завантаження…</div>
+  </div>
+</header>
+
+<main>
+  <div class="screen" id="screen-list"></div>
+  <div class="screen" id="screen-detail" hidden></div>
+  <div class="screen" id="screen-form" hidden></div>
+  <div class="screen" id="screen-act" hidden></div>
+</main>
+
+<div class="fab no-print" id="fab">
+  <button class="btn" onclick="goForm()">+ Нова рекламація</button>
+</div>
+
+<script>
+// ==================== НАЛАШТУВАННЯ ====================
+// Вставте сюди URL вашого розгорнутого Apps Script Web App (закінчується на /exec)
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/ВАШ_DEPLOYMENT_ID/exec';
+
+const tg = window.Telegram && window.Telegram.WebApp;
+if (tg) { tg.ready(); tg.expand(); }
+const telegramUser = (tg && tg.initDataUnsafe && tg.initDataUnsafe.user) || { id: 'demo', first_name: 'Тест' };
+
+let REF = null;          // довідники, кешуються при старті
+let currentProject = null;
+let history = ['list'];
+
+// ==================== API ====================
+async function apiGet(action, params) {
+  const qs = new URLSearchParams({ action, ...(params || {}) });
+  const res = await fetch(`${APPS_SCRIPT_URL}?${qs}`);
+  return res.json();
+}
+async function apiPost(action, body) {
+  const res = await fetch(APPS_SCRIPT_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action, ...body })
+  });
+  return res.json();
+}
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function uploadPhotos(fileList) {
+  const urls = [];
+  for (const file of fileList) {
+    const base64 = await fileToBase64(file);
+    const r = await apiPost('uploadPhoto', { filename: file.name, mimeType: file.type, base64 });
+    if (r.url) urls.push(r.url);
+  }
+  return urls;
+}
+
+// ==================== НАВІГАЦІЯ ====================
+function setHeader(title, sub, showBack) {
+  document.getElementById('screenTitle').textContent = title;
+  document.getElementById('screenSub').textContent = sub;
+  document.getElementById('backBtn').style.display = showBack ? 'inline-block' : 'none';
+}
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.hidden = (s.id !== 'screen-' + id));
+  document.getElementById('fab').style.display = (id === 'list') ? 'block' : 'none';
+}
+function goBack() {
+  history.pop();
+  const prev = history[history.length - 1] || 'list';
+  if (prev === 'list') loadList();
+  else if (prev === 'detail') loadDetail(currentProject, false);
+}
+function goForm() { history.push('form'); loadForm(); }
+
+// ==================== СТАТУСИ ====================
+const STATUS_CLASS = { 'Нова': 'new', 'В роботі': 'progress', 'Очікує підтвердження': 'wait', 'Закрито': 'closed' };
+function pill(status) {
+  const cls = STATUS_CLASS[status] || 'new';
+  return `<span class="pill pill--${cls}">${status}</span>`;
+}
+
+// ==================== ЕКРАН: СПИСОК ПРОЄКТІВ ====================
+async function loadList() {
+  history = ['list'];
+  showScreen('list'); setHeader('Проєкти з рекламаціями', 'завантаження…', false);
+  const el = document.getElementById('screen-list');
+  el.innerHTML = '<div class="loading">Завантажую…</div>';
+  const projects = await apiGet('projects');
+  setHeader('Проєкти з рекламаціями', `${projects.length} об'єкт(и) · за пріоритетом статусу`, false);
+  if (!projects.length) { el.innerHTML = '<div class="loading">Поки немає жодної рекламації.</div>'; return; }
+  el.innerHTML = projects.map(p => `
+    <button class="pcard" onclick="loadDetail('${p.project}', true)">
+      <div class="pcard-top">
+        <div>
+          <div class="pcard-title">${p.title || p.project}</div>
+          <div class="pcard-sub">${p.client || ''}</div>
+          <div class="pcard-num">Проєкт ${p.project}</div>
+        </div>
+        <div class="pcard-count">${p.total} рекламаці${p.total === 1 ? 'я' : 'й'}</div>
+      </div>
+      ${pill(p.hottestStatus)}
+    </button>
+  `).join('');
+}
+
+// ==================== ЕКРАН: ДЕТАЛІ ПРОЄКТУ ====================
+async function loadDetail(project, pushHistory) {
+  currentProject = project;
+  if (pushHistory) history.push('detail');
+  showScreen('detail'); setHeader('Картка проєкту', 'завантаження…', true);
+  const el = document.getElementById('screen-detail');
+  el.innerHTML = '<div class="loading">Завантажую…</div>';
+  if (!REF) REF = await apiGet('refData');
+  const data = await apiGet('projectDetail', { project });
+  setHeader(data.meta['Назва об\'єкта'] || project, `Проєкт ${project} · ${data.claims.length} рекламаці${data.claims.length === 1 ? 'я' : 'й'}`, true);
+
+  el.innerHTML = `
+    <div class="card">
+      <div class="pcard-title">${data.meta['Назва об\'єкта'] || project}</div>
+      <div class="pcard-sub">${data.meta['Клієнт'] || ''} · ${data.meta['Телефон'] || ''}</div>
+    </div>
+    ${data.claims.map(claimCardHtml).join('')}
+    <button class="btn btn--ghost no-print" onclick="loadAct('${project}')">Друкувати акт</button>
+  `;
+  data.claims.forEach(c => wireClaimCard(c));
+}
+
+function claimCardHtml(c) {
+  return `
+    <div class="claim-row" id="claim-${c['№ рекламації']}">
+      <div class="claim-row-top">
+        <span class="claim-code">${c['№ рекламації']}</span>
+        ${pill(c['Статус'])}
+      </div>
+      <div class="claim-meta">${c['Категорія дефекту'] || '—'} · «${c['Опис']}»</div>
+      <div class="claim-meta">Подав(ла) ${c['Автор (хто подав)']} · ${fmtDate(c['Дата/час подачі'])}</div>
+      <div class="claim-body" data-status="${c['Статус']}"></div>
+    </div>
+  `;
+}
+
+function fmtDate(v) {
+  if (!v) return '';
+  const d = new Date(v);
+  return isNaN(d) ? String(v) : d.toLocaleDateString('uk-UA');
+}
+
+function wireClaimCard(c) {
+  const body = document.querySelector(`#claim-${cssEscape(c['№ рекламації'])} .claim-body`);
+  if (!body) return;
+  const status = c['Статус'];
+
+  if (status === 'Нова') {
+    body.innerHTML = triageFormHtml(c);
+    wireTriageForm(c);
+  } else if (status === 'В роботі') {
+    body.innerHTML = `
+      <div class="claim-meta">Відповідальний: ${c['Відповідальний за виконання'] || '—'} · Винна сторона: ${c['Винна сторона (фінансова)'] || '—'}</div>
+      <label>Фото "після" (мін. 1)</label>
+      <input type="file" accept="image/*" multiple class="after-photo">
+      <button class="btn" style="margin-top:8px">Перевести в «Очікує підтвердження»</button>
+    `;
+    body.querySelector('button').onclick = async (e) => {
+      e.target.disabled = true; e.target.textContent = 'Зберігаю…';
+      const files = body.querySelector('.after-photo').files;
+      if (!files.length) { alert('Додайте хоча б одне фото "після"'); e.target.disabled = false; e.target.textContent = 'Перевести в «Очікує підтвердження»'; return; }
+      const urls = await uploadPhotos(files);
+      await apiPost('setStatus', { claimNumber: c['№ рекламації'], status: 'Очікує підтвердження', photoUrls: urls });
+      loadDetail(currentProject, false);
+    };
+  } else if (status === 'Очікує підтвердження') {
+    body.innerHTML = `
+      <div class="claim-meta">Відповідальний: ${c['Відповідальний за виконання'] || '—'}</div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn">Закрити</button>
+      </div>
+    `;
+    body.querySelector('button').onclick = async (e) => {
+      e.target.disabled = true;
+      await apiPost('close', { claimNumber: c['№ рекламації'], actorName: telegramUser.first_name });
+      loadDetail(currentProject, false);
+    };
+  } else if (status === 'Закрито') {
+    body.innerHTML = `<div class="claim-meta">Закрив(ла) ${c['Хто закрив'] || '—'} · ${fmtDate(c['Дата закриття'])}</div>`;
+  }
+}
+
+function triageFormHtml(c) {
+  const opts = (arr, sel) => arr.map(v => `<option ${v === sel ? 'selected' : ''}>${v}</option>`).join('');
+  return `
+    <div class="field"><label>Категорія дефекту</label>
+      <select class="t-category">${opts(REF.categories, c['Категорія дефекту'])}</select></div>
+    <div class="field"><label>Джерело дефекту</label>
+      <select class="t-source">${opts(REF.sources, '')}</select></div>
+    <div class="field"><label>Винна сторона (обов'язково)</label>
+      <select class="t-guilty">${opts(REF.guiltyParties, '')}</select></div>
+    <div class="field"><label>Відповідальний за виконання</label>
+      <select class="t-responsible">${opts(REF.staff.map(s => s.name), '')}</select></div>
+    <button class="btn">Зберегти розбір</button>
+  `;
+}
+
+function wireTriageForm(c) {
+  const cardEl = document.getElementById(`claim-${c['№ рекламації']}`);
+  cardEl.querySelector('.claim-body button').onclick = async (e) => {
+    e.target.disabled = true; e.target.textContent = 'Зберігаю…';
+    const body = cardEl.querySelector('.claim-body');
+    const payload = {
+      claimNumber: c['№ рекламації'],
+      category: body.querySelector('.t-category').value,
+      source: body.querySelector('.t-source').value,
+      guiltyParty: body.querySelector('.t-guilty').value,
+      responsible: body.querySelector('.t-responsible').value
+    };
+    const r = await apiPost('triage', payload);
+    if (r.error) { alert(r.error); e.target.disabled = false; e.target.textContent = 'Зберегти розбір'; return; }
+    loadDetail(currentProject, false);
+  };
+}
+
+function cssEscape(s) { return String(s).replace(/[^a-zA-Z0-9_-]/g, '_'); }
+
+// ==================== ЕКРАН: НОВА РЕКЛАМАЦІЯ ====================
+async function loadForm() {
+  showScreen('form'); setHeader('Нова рекламація', 'завантаження…', true);
+  if (!REF) REF = await apiGet('refData');
+  setHeader('Нова рекламація', 'заповніть форму нижче', true);
+  const el = document.getElementById('screen-form');
+  el.innerHTML = `
+    <div class="field"><label>Проєкт</label>
+      <select id="f-project">
+        <option value="">— виберіть проєкт —</option>
+        ${REF.projects.map(p => `<option value="${p.number}">${p.number} — ${p.title} (${p.client})</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Клієнт</label><input type="text" id="f-client"></div>
+    <div class="field"><label>Телефон</label><input type="tel" id="f-phone"></div>
+    <div class="field"><label>Категорія дефекту</label>
+      <div class="chip-row" id="f-category">
+        ${REF.categories.map((c, i) => `<span class="chip${i === 0 ? ' is-active' : ''}" data-v="${c}">${c}</span>`).join('')}
+      </div>
+    </div>
+    <div class="field"><label>Опис</label><textarea id="f-desc" placeholder="Що саме сталось, коли помітили…"></textarea></div>
+    <div class="field"><label>Фото (мін. 1)</label><input type="file" id="f-photos" accept="image/*" multiple></div>
+    <div id="f-warn"></div>
+    <button class="btn" id="f-submit">Надіслати рекламацію</button>
+  `;
+  // автозаповнення клієнта/телефону при виборі проєкту
+  document.getElementById('f-project').onchange = (e) => {
+    const p = REF.projects.find(p => p.number === e.target.value);
+    document.getElementById('f-client').value = p ? p.client : '';
+    document.getElementById('f-phone').value = p ? p.phone : '';
+  };
+  document.querySelectorAll('#f-category .chip').forEach(chip => {
+    chip.onclick = () => {
+      document.querySelectorAll('#f-category .chip').forEach(c => c.classList.remove('is-active'));
+      chip.classList.add('is-active');
+    };
+  });
+  document.getElementById('f-submit').onclick = submitClaim;
+}
+
+async function submitClaim() {
+  const project = document.getElementById('f-project').value;
+  const client = document.getElementById('f-client').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const category = document.querySelector('#f-category .chip.is-active')?.dataset.v;
+  const description = document.getElementById('f-desc').value.trim();
+  const files = document.getElementById('f-photos').files;
+  const warnEl = document.getElementById('f-warn');
+  warnEl.innerHTML = '';
+
+  if (!project || !client || !phone || !category || !description || !files.length) {
+    warnEl.innerHTML = '<div class="warn">Заповніть усі поля і додайте хоча б одне фото.</div>';
+    return;
+  }
+
+  const btn = document.getElementById('f-submit');
+  btn.disabled = true; btn.textContent = 'Перевіряю на дублі…';
+
+  const dup = await apiPost('checkDuplicate', { project, description });
+  if (dup.possibleDuplicate) {
+    const proceed = confirm(`Схожа рекламація вже є на цьому об'єкті (${dup.matches.map(m => m.number).join(', ')}). Все одно подати нову?`);
+    if (!proceed) { btn.disabled = false; btn.textContent = 'Надіслати рекламацію'; return; }
+  }
+
+  btn.textContent = 'Завантажую фото…';
+  const photoUrls = await uploadPhotos(files);
+
+  btn.textContent = 'Надсилаю…';
+  const r = await apiPost('createClaim', {
+    project, client, phone, category, description, photoUrls,
+    telegramUserId: telegramUser.id
+  });
+
+  if (r.error) {
+    warnEl.innerHTML = `<div class="warn">${r.error}</div>`;
+    btn.disabled = false; btn.textContent = 'Надіслати рекламацію';
+    return;
+  }
+
+  if (tg && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+  alert(`Рекламацію ${r.number} подано.`);
+  loadList();
+}
+
+// ==================== ЕКРАН: АКТ ====================
+async function loadAct(project) {
+  history.push('act');
+  showScreen('act'); setHeader('Акт на друк', 'завантаження…', true);
+  const data = await apiGet('actData', { project });
+  setHeader('Акт на друк', `№ ${data.actNumber}`, true);
+  const el = document.getElementById('screen-act');
+  el.innerHTML = `
+    <div class="act-sheet">
+      <div class="act-head">
+        <div class="act-num">АКТ № ${data.actNumber}</div>
+        <div>${data.meta['Назва об\'єкта'] || ''}</div>
+        <div>${data.meta['Клієнт'] || ''} · ${data.meta['Телефон'] || ''}</div>
+        <div>Складено ${new Date().toLocaleDateString('uk-UA')}</div>
+      </div>
+      ${data.items.map(it => `
+        <div class="act-item">
+          <div class="act-item-top"><span>${it['№ пункту в акті']} · ${it['№ рекламації']}</span><span>${it['Статус']}</span></div>
+          <div>${it['Категорія дефекту'] || ''} — «${it['Опис']}». Виявлено ${fmtDate(it['Дата/час подачі'])}, виконавець ${it['Відповідальний за виконання'] || '—'}.</div>
+          <div class="act-sign"><span>Підпис клієнта: ${it['Клієнтський акцепт'] === 'Так' ? 'підписано' : '__________'}</span><span>Дата: ${it['Дата клієнтського акцепту'] ? fmtDate(it['Дата клієнтського акцепту']) : '____'}</span></div>
+        </div>
+      `).join('')}
+    </div>
+    <button class="btn no-print" onclick="window.print()">Друкувати</button>
+  `;
+}
+
+// ==================== СТАРТ ====================
+loadList();
+</script>
+</body>
+</html>
