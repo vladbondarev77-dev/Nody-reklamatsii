@@ -326,7 +326,8 @@ function fmtDate(v) {
 }
 
 function wireClaimCard(c) {
-  const body = document.querySelector(`#claim-${cssEscape(c['№ рекламації'])} .claim-body`);
+  const cardEl = document.getElementById('claim-' + c['№ рекламації']);
+  const body = cardEl ? cardEl.querySelector('.claim-body') : null;
   if (!body) return;
   const status = c['Статус'];
 
@@ -397,8 +398,6 @@ function wireTriageForm(c) {
     loadDetail(currentProject, false);
   };
 }
-
-function cssEscape(s) { return String(s).replace(/[^a-zA-Z0-9_-]/g, '_'); }
 
 // ==================== ЕКРАН: НОВА РЕКЛАМАЦІЯ ====================
 async function loadForm() {
