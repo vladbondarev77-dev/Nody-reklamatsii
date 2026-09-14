@@ -132,7 +132,7 @@
 <script>
 // ==================== НАЛАШТУВАННЯ ====================
 // Вставте сюди URL вашого розгорнутого Apps Script Web App (закінчується на /exec)
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/ВАШ_DEPLOYMENT_ID/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxoSCVDvoBV1k8SOABpndyyLjJQG4J_IEniSp8JM3e0tQNP2cqbsZSX-WFtDQV0X3Z9ZA/exec';
 
 const tg = window.Telegram && window.Telegram.WebApp;
 if (tg) { tg.ready(); tg.expand(); }
@@ -143,17 +143,36 @@ let currentProject = null;
 let history = ['list'];
 
 // ==================== API ====================
-async function apiGet(action, params) {
-  const qs = new URLSearchParams({ action, ...(params || {}) });
-  const res = await fetch(`${APPS_SCRIPT_URL}?${qs}`);
-  return res.json();
-}
-async function apiPost(action, body) {
-  const res = await fetch(APPS_SCRIPT_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action, ...body })
+// GitHub Pages (інший домен) не завжди може достукатись до Apps Script через
+// звичайний fetch() — CORS губиться на редиректі всередині Google. Тому всі
+// дії, крім завантаження фото, ідуть через JSONP (<script> тег, якого CORS
+// не стосується взагалі). Фото (великий base64) — окремо, звичайним POST.
+
+function jsonp_(action, payload) {
+  return new Promise((resolve, reject) => {
+    const cbName = 'cb_' + Math.random().toString(36).slice(2);
+    const qs = new URLSearchParams({ action, callback: cbName, payload: JSON.stringify(payload || {}) });
+    const script = document.createElement('script');
+    const timer = setTimeout(() => { cleanup(); reject(new Error('Таймаут запиту: ' + action)); }, 15000);
+    function cleanup() { clearTimeout(timer); delete window[cbName]; script.remove(); }
+    window[cbName] = (data) => { cleanup(); resolve(data); };
+    script.onerror = () => { cleanup(); reject(new Error('Помилка мережі: ' + action)); };
+    script.src = `${APPS_SCRIPT_URL}?${qs}`;
+    document.body.appendChild(script);
   });
-  return res.json();
+}
+
+async function apiGet(action, params) { return jsonp_(action, params); }
+async function apiPost(action, body) {
+  if (action === 'uploadPhoto') {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action, ...body })
+    });
+    return res.json();
+  }
+  return jsonp_(action, body);
 }
 function fileToBase64(file) {
   return new Promise((resolve, reject) => {
